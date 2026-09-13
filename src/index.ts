@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { applyPatch, PatchFailure } from "./apply-patch.ts";
 import { LIMITS } from "./patch.ts";
 import { BASH_SNIPPET, PATCH_SNIPPET, buildPoorSystemPrompt, SHADOWED_TOOLS } from "./prompt.ts";
-import { BashRunner, bashParameters } from "./bash-exec.ts";
+import { BashRunner, bashParameters, type BashExecResult } from "./bash-exec.ts";
 
 export { SHADOWED_TOOLS } from "./prompt.ts";
 
@@ -16,6 +16,30 @@ export const patchParameters = Type.Object({
 
 function disabledReason(name: string): string {
   return `${name} is disabled by poor; use ${name === "read" || name === "bash" ? "bash_exec for inspection and commands" : "apply_patch for file changes"} when that replacement is active.`;
+}
+
+function oneLine(text: string) {
+  return {
+    render(width: number): string[] {
+      if (width <= 0) return [];
+      return [text.length <= width ? text : width <= 3 ? text.slice(0, width) : `${text.slice(0, width - 3)}...`];
+    },
+    invalidate() {},
+  };
+}
+
+function bashStatus(result: BashExecResult): string {
+  const { exit_code: code, signal, timed_out: timedOut, descendant_cleanup_attempted: cleanup } = result.outcome;
+  const status = timedOut ? "timed out" : signal !== null ? `signal ${signal}` : `exit_code: ${code ?? "unknown"}`;
+  return `${status}${cleanup ? " (cleanup attempted)" : ""}`;
+}
+
+function commandPreview(command: unknown, limit = 120): string {
+  if (typeof command !== "string") return "...";
+  const line = command.replace(/[\s\u0000-\u001f\u007f-\u009f]+/g, " ").trim();
+  if (!line) return "...";
+  const characters = Array.from(line);
+  return characters.length <= limit ? line : `${characters.slice(0, limit - 3).join("")}...`;
 }
 
 export default function poor(pi: ExtensionAPI): void {
@@ -34,6 +58,17 @@ export default function poor(pi: ExtensionAPI): void {
       const result = await shell.run(ctx.cwd, params, signal);
       // A single bounded response, not repeated streaming snapshots of a log.
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+    },
+    renderCall(params) {
+      return oneLine(`$ ${commandPreview(params.command)}`);
+    },
+    // Keep the TUI compact. Complete JSON remains model-visible and in the
+    // session; users can inspect retained output through its artifact path.
+    renderResult(result) {
+      const details = result.details as BashExecResult | undefined;
+      if (details?.outcome) return oneLine(bashStatus(details));
+      const text = result.content.find((item) => item.type === "text")?.text ?? "bash_exec failed";
+      return oneLine(text.split("\n", 1)[0]);
     },
   });
   pi.on("session_shutdown", async () => { await shell.close(); });

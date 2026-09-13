@@ -110,6 +110,11 @@ Pi receives **one final JSON text result** plus identical structured `details`.
 The extension does not stream the entire log or repeatedly emit growing output
 snapshots. stdout and stderr are drained concurrently and stored independently:
 
+In Pi's interactive UI, the call shows a one-line command preview capped at 120
+characters, and the result is rendered as a single status line (for example,
+`exit_code: 0`) instead of displaying that JSON blob. This is presentation-only:
+the model and saved session still receive the complete result.
+
 ```text
 {
   cwd,

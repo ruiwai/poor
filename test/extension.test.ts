@@ -151,6 +151,16 @@ test("Pi-wrapped bash_exec returns one structured clump and exposes no environme
   assert.equal(decoded.outcome.exit_code, 6);
   assert.equal(decoded.outcome.stdout.preview, `${root}\n`);
   assert.equal(decoded.outcome.stderr.preview, "err");
+  const definition = session.extensionRunner.getToolDefinition("bash_exec")!;
+  assert.ok(definition.renderCall);
+  const call = definition.renderCall({ command: `printf first\n${"x".repeat(150)}` }, {} as never, {} as never);
+  assert.deepEqual(call.render(200), [`$ printf first ${"x".repeat(104)}...`]);
+  assert.deepEqual(call.render(20), ["$ printf first xx..."]);
+  const partialCall = definition.renderCall({} as never, {} as never, {} as never);
+  assert.deepEqual(partialCall.render(80), ["$ ..."]);
+  assert.ok(definition.renderResult);
+  const rendered = definition.renderResult(result, { expanded: false, isPartial: false }, {} as never, {} as never);
+  assert.deepEqual(rendered.render(80), ["exit_code: 6"]);
   const schema = JSON.parse(JSON.stringify(tool.parameters));
   assert.equal(schema.additionalProperties, false);
   assert.equal(schema.properties.env_file, undefined);

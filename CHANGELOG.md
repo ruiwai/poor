@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Render `bash_exec` calls with a short command preview and results as a compact
+  one-line exit status in Pi's interactive UI.
 - Rewrite the system prompt as concise, standalone workflow guidance; clarify
   shell versus patch paths without references to default prompts.
 - Keep tool mechanics in tool definitions, group patch syntax, limitations, and
