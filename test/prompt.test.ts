@@ -57,10 +57,9 @@ test("complete prompt replaces Pi's old base, rather than appending or editing i
   const before = session.agent.state.systemPrompt;
   assert.match(before, /Pi documentation/);
   const after = await rewrite(before + "\nEARLIER EXTENSION BASE TEXT");
-  assert.match(after, /^You are a coding agent operating in a local development workspace/);
+  assert.match(after, /^You are a coding agent in a local workspace/);
   assert.doesNotMatch(after, /Pi documentation|EARLIER EXTENSION BASE TEXT|expert coding assistant operating inside pi/);
-  assert.match(after, /complete base instruction for this run/);
-  assert.match(after, /discarded Pi defaults/);
+  assert.match(after, /This base prompt replaces Pi defaults, SYSTEM.md, and earlier base prompts/);
   assert.match(after, /- bash_exec:/);
   assert.match(after, /- apply_patch:/);
   assert.doesNotMatch(after, /^- (bash|read|write|edit):/m);
@@ -109,8 +108,16 @@ test("reactivated original tools and stale prompt options cannot reintroduce the
   assert.match(after, /use bash_exec to read its SKILL\.md/);
 });
 
-test("new prompt explains stream counters, retained prefixes, redirection and failure semantics", () => {
+test("concise prompt preserves argument types, limits, and recovery guidance", () => {
   const prompt = buildPoorSystemPrompt({ cwd: "/workspace" }, ["bash_exec", "apply_patch"]);
+  assert.ok(prompt.length < 6500, `Base prompt grew to ${prompt.length} characters`);
+  assert.match(prompt, /command \(required string\), cwd \(optional string\)/);
+  assert.match(prompt, /optional positive integers or null; null uses defaults/);
+  assert.match(prompt, /timeout defaults to 120s, maximum 604800s/);
+  assert.match(prompt, /preview defaults to 1024 bytes and cannot exceed retention/);
+  assert.match(prompt, /session-workspace-relative, unaffected by bash_exec cwd/);
+  assert.match(prompt, /reread the file after a context mismatch/);
+  assert.match(prompt, /mixed LF\/CRLF is rejected/);
   for (const field of ["exit_code", "timed_out", "descendant_cleanup_attempted", "len", "shown/observed", "silently discarded"]) assert.ok(prompt.includes(field), field);
   assert.match(prompt, /Bytes beyond the artifact quota are silently discarded/);
   assert.match(prompt, /tail -n 60/);

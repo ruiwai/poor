@@ -27,13 +27,13 @@ const utf8String = (maxBytes: number, description: string) => Type.Unsafe<string
 });
 export const bashParameters = Type.Object({
   command: utf8String(BASH_LIMITS.maxCommandBytes,
-    "Fresh non-interactive bash -c command; maximum UTF-8 size is 131072 bytes."),
+    "Command passed to a fresh non-interactive bash -c; maximum 131072 UTF-8 bytes."),
   cwd: Type.Optional(Type.Unsafe<string>({ type: "string", minLength: 1, default: ".",
-    description: "Initial host directory; maximum UTF-8 size is 4096 bytes. Relative paths resolve from the Pi session cwd. Not a shell sandbox.",
+    description: "Working directory on the host; defaults to the session cwd. Relative cwd resolves from the session cwd. Maximum 4096 UTF-8 bytes.",
     "x-maxUtf8Bytes": 4096 })),
-  timeout_seconds: optionalInteger(BASH_LIMITS.maxCommandSeconds, "Execution deadline; effective local default 120 seconds and maximum 7 days."),
-  max_artifact_bytes: optionalInteger(BASH_LIMITS.maxArtifactBytes, "Per-stream retained prefix quota; default and maximum 64 MiB."),
-  max_preview_bytes: optionalInteger(BASH_LIMITS.maxPreviewBytes, "Per-stream raw preview quota; default 1024; must not exceed max_artifact_bytes."),
+  timeout_seconds: optionalInteger(BASH_LIMITS.maxCommandSeconds, "Timeout in seconds; omitted or null uses 120. Maximum 604800 (7 days)."),
+  max_artifact_bytes: optionalInteger(BASH_LIMITS.maxArtifactBytes, "Retained bytes per stream; omitted or null uses 67108864 (64 MiB), also the maximum."),
+  max_preview_bytes: optionalInteger(BASH_LIMITS.maxPreviewBytes, "Preview bytes per stream; omitted or null uses 1024. Must not exceed max_artifact_bytes."),
 }, { additionalProperties: false });
 
 export interface BashExecArguments {
