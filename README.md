@@ -142,7 +142,8 @@ before tool capture. Preserve the original exit status; a trailing successful
 pipeline errors matter. Do not rerun mutating commands merely to get logs.
 
 Each capture has a unique private directory (mode 0700) and stream files
-(mode 0600) beneath the host temporary directory. Completed artifacts have
+(mode 0600) beneath `/tmp/pi` (or the platform temporary directory's `pi`
+folder). Completed artifacts have
 best-effort seven-day retention; later commands perform bounded cleanup.
 Cleanup does not recurse through unknown directories. There is no background
 retention service, aggregate disk quota, or guarantee against host tmp cleanup.

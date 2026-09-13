@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export const ARTIFACT_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+export const ARTIFACT_BASE = join(tmpdir(), "pi");
 const owner = process.getuid?.() ?? "local";
 const prefix = `poor-bash-exec-${owner}-`;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -16,7 +17,7 @@ export class CommandArtifacts {
   private cursor?: Dir;
   private cleaning?: Promise<void>;
   readonly base: string;
-  constructor(base = tmpdir()) { this.base = base; }
+  constructor(base = ARTIFACT_BASE) { this.base = base; }
 
   async cleanup(now = Date.now()): Promise<void> {
     if (this.cleaning) return this.cleaning;
@@ -25,6 +26,7 @@ export class CommandArtifacts {
   }
 
   private async sweep(now: number): Promise<void> {
+    await fs.mkdir(this.base, { recursive: true, mode: 0o700 });
     this.cursor ??= await fs.opendir(this.base);
     for (let count = 0; count < 128; count++) {
       const entry = await this.cursor.read();

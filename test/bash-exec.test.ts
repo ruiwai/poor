@@ -4,7 +4,7 @@ import * as fs from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { BashRunner, BashExecFailure, bashParameters, validateBashArguments, type BashExecArguments } from "../src/bash-exec.ts";
-import { CommandArtifacts, ARTIFACT_RETENTION_SECONDS } from "../src/command-artifacts.ts";
+import { CommandArtifacts, ARTIFACT_BASE, ARTIFACT_RETENTION_SECONDS } from "../src/command-artifacts.ts";
 
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const node = (script: string) => `${quote(process.execPath)} -e ${quote(script)}`;
@@ -38,6 +38,11 @@ test("bash_exec schema matches reference fields and wire bounds except session/e
   assert.deepEqual(validateBashArguments({ command: "true", timeout_seconds: null, max_preview_bytes: null }), {
     command: "true", cwd: ".", timeoutSeconds: 120, artifactBytes: 262144, previewBytes: 1024,
   });
+});
+
+test("default artifact storage is grouped under the temporary pi folder", () => {
+  assert.equal(new CommandArtifacts().base, ARTIFACT_BASE);
+  assert.equal(ARTIFACT_BASE, join(tmpdir(), "pi"));
 });
 
 test("capture matches the directly exercised workspace-mcp truncation and exit-7 probe", async (t) => {
