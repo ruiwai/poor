@@ -59,7 +59,7 @@ test("complete prompt replaces Pi's old base, rather than appending or editing i
   const after = await rewrite(before + "\nEARLIER EXTENSION BASE TEXT");
   assert.match(after, /^You are a coding agent in a local workspace/);
   assert.doesNotMatch(after, /Pi documentation|EARLIER EXTENSION BASE TEXT|expert coding assistant operating inside pi/);
-  assert.match(after, /This base prompt replaces Pi defaults, SYSTEM.md, and earlier base prompts/);
+  assert.doesNotMatch(after, /Pi defaults|Prompt authority|read, write, edit, and bash are disabled/);
   assert.match(after, /- bash_exec:/);
   assert.match(after, /- apply_patch:/);
   assert.doesNotMatch(after, /^- (bash|read|write|edit):/m);
@@ -108,23 +108,19 @@ test("reactivated original tools and stale prompt options cannot reintroduce the
   assert.match(after, /use bash_exec to read its SKILL\.md/);
 });
 
-test("concise prompt preserves argument types, limits, and recovery guidance", () => {
+test("standalone prompt separates workflow from tool mechanics and states path rules once", () => {
   const prompt = buildPoorSystemPrompt({ cwd: "/workspace" }, ["bash_exec", "apply_patch"]);
-  assert.ok(prompt.length < 6500, `Base prompt grew to ${prompt.length} characters`);
-  assert.match(prompt, /command \(required string\), cwd \(optional string\)/);
-  assert.match(prompt, /optional positive integers or null; null uses defaults/);
-  assert.match(prompt, /timeout defaults to 120s, maximum 604800s/);
-  assert.match(prompt, /preview defaults to 1024 bytes and cannot exceed retention/);
-  assert.match(prompt, /session-workspace-relative, unaffected by bash_exec cwd/);
-  assert.match(prompt, /reread the file after a context mismatch/);
-  assert.match(prompt, /mixed LF\/CRLF is rejected/);
-  for (const field of ["exit_code", "timed_out", "descendant_cleanup_attempted", "len", "shown/observed", "silently discarded"]) assert.ok(prompt.includes(field), field);
-  assert.match(prompt, /Bytes beyond the artifact quota are silently discarded/);
-  assert.match(prompt, /tail -n 60/);
-  assert.match(prompt, /exit "\$status"/);
-  assert.match(prompt, /NOT sandboxed/);
-  assert.match(prompt, /multi-file changes and moves are NOT atomic/);
-  assert.match(prompt, /There is no session, env_file, environment-map, or persistent-shell API/);
+  assert.ok(prompt.length < 3000, `Base prompt grew to ${prompt.length} characters`);
+  assert.match(prompt, /Use bash_exec for inspection, builds, and tests/);
+  assert.match(prompt, /Use apply_patch for file edits/);
+  assert.match(prompt, /Shell paths resolve from cwd/);
+  assert.equal(prompt.split("Patch paths are always relative to the session workspace").length - 1, 1);
+  assert.match(prompt, /not a shell command's cwd/);
+  assert.match(prompt, /reread mismatched context rather than guessing/);
+  assert.match(prompt, /inspect the returned artifact path instead of rerunning a mutating command/);
+  assert.match(prompt, /set -o pipefail/);
+  assert.match(prompt, /A failed operation may have changed files/);
+  assert.doesNotMatch(prompt, /Pi defaults|SYSTEM\.md|bash are disabled|seven-day|Patch grammar|Arguments:/);
 });
 
 test("project bodies are preserved, metadata is escaped, and stale generic prompt guidelines are discarded", () => {

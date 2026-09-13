@@ -8,8 +8,11 @@ artifacts, with small inline previews and compact output length counters.
 
 Version 2 also **replaces the complete base system prompt**, rather than
 appending guidance or selectively rewriting Pi's old tool sections. The new
-instructions explain the actual tool schemas, output handling, failure
-semantics, patch grammar, and skill loading. There is no MCP/session dependency
+standalone prompt covers workflow, verification, and skill loading without
+referring to default prompts. Tool definitions carry argument schemas, output
+semantics, and patch grammar instead of repeating them in the base prompt.
+Path rule: shell paths use `cwd`; patch paths are workspace-relative, regardless
+of shell `cwd`. There is no MCP/session dependency
 and no environment-file or persistent-environment feature.
 
 Targets **Pi 0.85.1** (`@earendil-works/pi-coding-agent`, `typebox`) and

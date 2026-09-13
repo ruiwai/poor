@@ -41,6 +41,22 @@ test("real Pi loader activates only bash_exec and apply_patch by default", async
   const registered = session.extensionRunner.getAllRegisteredTools();
   assert.deepEqual(registered.map((tool) => tool.definition.name).sort(), ["apply_patch", "bash", "bash_exec", "edit", "read", "write"]);
   const definition = session.extensionRunner.getToolDefinition("apply_patch")!;
+  assert.match(definition.description, /Match context exactly/);
+  assert.match(definition.description, /mixed LF\/CRLF is rejected/);
+  assert.match(definition.description, /not atomic/);
+  assert.match(definition.description, /\*\*\* Begin Patch/);
+  assert.match(definition.description, /\nSyntax:\n/);
+  assert.match(definition.description, /\nLimitations:\n/);
+  assert.match(definition.description, /\nSafety:/);
+  assert.ok(definition.description.length < 1500);
+  const shell = session.extensionRunner.getToolDefinition("bash_exec")!;
+  assert.ok(shell.description.length < 650);
+  for (const field of ["exit_code", "signal", "timed_out", "descendant_cleanup_attempted", "preview", "len", "path"]) {
+    assert.ok(shell.description.includes(field), field);
+  }
+  assert.match(shell.description, /without sandboxing/);
+  assert.match(shell.description, /shell state does not persist/);
+  assert.match(shell.description, /beyond max_artifact_bytes is discarded/);
   const schema = JSON.parse(JSON.stringify(definition.parameters)) as {
     properties: { patch: { minLength: number; "x-maxUtf8Bytes": number } };
     required: string[];
@@ -66,6 +82,17 @@ test("Pi-wrapped apply_patch executes in session cwd, not extension install dire
   await assert.rejects(tool.execute("mismatch", {
     patch: "*** Begin Patch\n*** Update File: hello.txt\n@@\n-missing\n+x\n*** End Patch",
   }), /Patch diagnostics:.*unchanged/);
+});
+
+test("documented patch example executes unchanged", async (t) => {
+  const { root, session } = await load(t);
+  const definition = session.extensionRunner.getToolDefinition("apply_patch")!;
+  const example = definition.description.match(/Example \(decoded patch\):\n([\s\S]*?\*\*\* End Patch)/)?.[1];
+  assert.ok(example, "tool description includes a complete patch example");
+  await fs.writeFile(join(root, "example.txt"), "old\n");
+  const tool = session.agent.state.tools.find((tool) => tool.name === "apply_patch")!;
+  await tool.execute("documented-example", { patch: example });
+  assert.equal(await fs.readFile(join(root, "example.txt"), "utf8"), "new\n");
 });
 
 test("original tools remain blocked even if another extension reactivates them", async (t) => {

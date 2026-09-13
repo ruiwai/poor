@@ -23,12 +23,11 @@ export default function poor(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "bash_exec",
     label: "Bash Exec",
-    description: "Run a fresh non-interactive bash -c on the host (not sandboxed). "
-      + "Relative cwd resolves from the session cwd. Stdin is closed; shell state does not persist. No session or env_file argument. "
-      + "Returns JSON with separate stdout/stderr previews, shown/observed byte counters, and paths to retained output. "
-      + "Output beyond the retention quota is discarded; redirect large logs to files. Artifacts have best-effort seven-day retention. "
-      + "Check outcome.exit_code, signal, timed_out, and descendant_cleanup_attempted for command success. "
-      + "Timeout, cancellation, and leftover descendants trigger process-group cleanup; background services are unsupported.",
+    description: "Run non-interactive bash -c on the host, without sandboxing. Stdin is closed; shell state does not persist.\n"
+      + "Result: { cwd, outcome }. Check outcome.exit_code, signal, timed_out, and descendant_cleanup_attempted. "
+      + "outcome.stdout/stderr are null or { preview, len, path? }; len counts shown/observed bytes, path locates retained output. "
+      + "Output beyond max_artifact_bytes is discarded; artifacts expire.\n"
+      + "Safety: no background services. Timeout, cancellation, or leftover descendants trigger cleanup, not filesystem rollback.",
     promptSnippet: BASH_SNIPPET,
     parameters: bashParameters,
     async execute(_id, params, signal, _onUpdate, ctx) {
@@ -56,15 +55,18 @@ export default function poor(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "apply_patch",
     label: "Apply Patch",
-    description: "Add, update, move, or delete files with an exact Codex patch. Paths are relative to the session workspace, not bash_exec cwd. "
-      + "Begin with '*** Begin Patch' and end with '*** End Patch'. "
-      + "Use '*** Add File: path' with '+' lines; '*** Delete File: path'; or "
-      + "'*** Update File: path' with an optional '*** Move to: path' followed by hunks. "
-      + "Start each hunk with '@@' or '@@ <exact locator line>'; prefix context with ' ', deletions with '-', additions with '+'. "
-      + "'*** End of File' anchors the preceding hunk at EOF. Pure insertions append. "
-      + "Use normalized paths; no absolute paths, traversal, symlinks, or .git metadata. "
-      + "Preflight checks all operations; moves and multi-file patches are NOT atomic. Inspect diagnostics and files after failure before retrying. "
-      + "Limits: 32 MiB patch, 128 operations, 4 MiB per file, 32 MiB retained planning content.",
+    description: "Edit files using { patch: string }.\n\n"
+      + "Syntax:\n"
+      + "- Wrap in '*** Begin Patch' / '*** End Patch'.\n"
+      + "- '*** Add File: path' with + lines; '*** Delete File: path'; '*** Update File: path' with optional '*** Move to: destination' and hunks. Move-only updates are allowed.\n"
+      + "- Hunks: '@@' or '@@ <exact locator line>'; prefix context with space, removals with -, additions with +. Match context exactly; no diff line numbers. Order hunks top to bottom.\n"
+      + "- '*** End of File' anchors the last hunk at EOF. Pure insertions append.\n"
+      + "Example (decoded patch):\n*** Begin Patch\n*** Update File: example.txt\n@@\n-old\n+new\n*** End Patch\n\n"
+      + "Limitations:\n"
+      + "- Normalized paths only: no absolute paths, traversal, symlinks, .git metadata, duplicate paths, or ancestor/descendant collisions. Add/move destinations must not exist.\n"
+      + "- Updates require UTF-8; mixed LF/CRLF is rejected. Move-only operations preserve bytes.\n"
+      + "- Maximum: 32 MiB patch, 128 operations, 4 MiB/file, 32 MiB planning content.\n\n"
+      + "Safety: preflight covers all operations; moves and multi-file patches are not atomic. Rollback is best-effort.",
     promptSnippet: PATCH_SNIPPET,
     parameters: patchParameters,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {

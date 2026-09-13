@@ -1,5 +1,12 @@
 # Changes
 
+## Unreleased
+
+- Rewrite the system prompt as concise, standalone workflow guidance; clarify
+  shell versus patch paths without references to default prompts.
+- Keep tool mechanics in tool definitions, group patch syntax, limitations, and
+  safety, and verify the documented patch example in integration tests.
+
 ## 2.0.0
 
 - Replace the built-in bash tool with local workspace-mcp-style `bash_exec`.
