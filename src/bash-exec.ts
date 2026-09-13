@@ -11,8 +11,8 @@ export const BASH_LIMITS = Object.freeze({
   maxCommandBytes: 131_072,
   defaultCommandSeconds: 120,
   maxCommandSeconds: 604_800,
-  maxArtifactBytes: 262_144,
-  maxPreviewBytes: 262_144,
+  maxArtifactBytes: 67_108_864,
+  maxPreviewBytes: 67_108_864,
   defaultPreviewBytes: 1_024,
   terminationGraceMs: 200,
   collectorSettleMs: 2_000,
@@ -26,11 +26,10 @@ export const bashParameters = Type.Object({
     description: "Fresh non-interactive bash -c command. Runtime limit is UTF-8 bytes." }),
   cwd: Type.Optional(Type.String({ minLength: 1, maxLength: 4096, default: ".",
     description: "Initial host directory; relative paths resolve from the Pi session cwd. Not a shell sandbox." })),
-  // Match the workspace-mcp wire bounds. Like its client, validate the lower
-  // effective host caps separately before any shell is spawned.
+  // The schema and runtime use the same 64 MiB per-stream cap.
   timeout_seconds: optionalInteger(BASH_LIMITS.maxCommandSeconds, "Execution deadline; effective local default 120 seconds and maximum 7 days."),
-  max_artifact_bytes: optionalInteger(67_108_864, "Per-stream retained prefix quota; effective local default and cap 262144 bytes."),
-  max_preview_bytes: optionalInteger(67_108_864, "Per-stream raw preview quota; default 1024, effective cap 262144 and at most artifact quota."),
+  max_artifact_bytes: optionalInteger(BASH_LIMITS.maxArtifactBytes, "Per-stream retained prefix quota; default and maximum 64 MiB."),
+  max_preview_bytes: optionalInteger(BASH_LIMITS.maxPreviewBytes, "Per-stream raw preview quota; default 1024; must not exceed max_artifact_bytes."),
 }, { additionalProperties: false });
 
 export interface BashExecArguments {

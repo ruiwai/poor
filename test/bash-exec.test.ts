@@ -36,7 +36,7 @@ test("bash_exec schema matches reference fields and wire bounds except session/e
   assert.equal(schema.properties.timeout_seconds.anyOf[0].maximum, 604800);
   assert.equal(schema.properties.max_artifact_bytes.anyOf[0].maximum, 67108864);
   assert.deepEqual(validateBashArguments({ command: "true", timeout_seconds: null, max_preview_bytes: null }), {
-    command: "true", cwd: ".", timeoutSeconds: 120, artifactBytes: 262144, previewBytes: 1024,
+    command: "true", cwd: ".", timeoutSeconds: 120, artifactBytes: 67108864, previewBytes: 1024,
   });
 });
 
@@ -150,7 +150,7 @@ test("invalid arguments, unsupported env APIs, and unsafe cwd are rejected befor
   for (const field of ["timeout_seconds", "max_artifact_bytes", "max_preview_bytes"]) {
     for (const value of [0, -1, 1.5, "1", NaN, Infinity, 67108865]) invalid.push({ command: "true", [field]: value });
   }
-  invalid.push({ command: "true", timeout_seconds: 604801 }, { command: "true", max_artifact_bytes: 262145 },
+  invalid.push({ command: "true", timeout_seconds: 604801 }, { command: "true", max_artifact_bytes: 67108865 },
     { command: "true", max_artifact_bytes: 4, max_preview_bytes: 5 });
   for (const cwd of [null, "", " ", "a\0b"]) invalid.push({ command: "true", cwd });
   for (const input of invalid) await assert.rejects(runner.run(root, input as BashExecArguments));
