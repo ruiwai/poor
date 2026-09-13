@@ -59,6 +59,8 @@ test("complete prompt replaces Pi's old base, rather than appending or editing i
   const after = await rewrite(before + "\nEARLIER EXTENSION BASE TEXT");
   assert.match(after, /^You are a coding agent operating in a local development workspace/);
   assert.doesNotMatch(after, /Pi documentation|EARLIER EXTENSION BASE TEXT|expert coding assistant operating inside pi/);
+  assert.match(after, /complete base instruction for this run/);
+  assert.match(after, /discarded Pi defaults/);
   assert.match(after, /- bash_exec:/);
   assert.match(after, /- apply_patch:/);
   assert.doesNotMatch(after, /^- (bash|read|write|edit):/m);
@@ -109,8 +111,8 @@ test("reactivated original tools and stale prompt options cannot reintroduce the
 
 test("new prompt explains stream counters, retained prefixes, redirection and failure semantics", () => {
   const prompt = buildPoorSystemPrompt({ cwd: "/workspace" }, ["bash_exec", "apply_patch"]);
-  for (const field of ["exit_code", "timed_out", "descendant_cleanup_attempted", "preview_bytes", "stored_bytes", "total_bytes", "storage_truncated", "preview_truncated"]) assert.ok(prompt.includes(field), field);
-  assert.match(prompt, /Reading the artifact cannot recover discarded output/);
+  for (const field of ["exit_code", "timed_out", "descendant_cleanup_attempted", "len", "shown/observed", "silently discarded"]) assert.ok(prompt.includes(field), field);
+  assert.match(prompt, /Bytes beyond the artifact quota are silently discarded/);
   assert.match(prompt, /tail -n 60/);
   assert.match(prompt, /exit "\$status"/);
   assert.match(prompt, /NOT sandboxed/);

@@ -4,7 +4,7 @@ A self-contained Pi extension that **shadows and hides `read`, `write`, `edit`,
 and `bash`**. The normal default tool set is **`bash_exec` + `apply_patch`**.
 Inspect files and run commands through `bash_exec`; mutate source through
 `apply_patch`. Shell output is collected into separate bounded stdout/stderr
-artifacts, with small inline previews and explicit truncation metadata.
+artifacts, with small inline previews and compact output length counters.
 
 Version 2 also **replaces the complete base system prompt**, rather than
 appending guidance or selectively rewriting Pi's old tool sections. The new
@@ -93,14 +93,13 @@ can still set their own variables explicitly inside the command string.
 | Property | Effective behavior |
 | --- | --- |
 | `command` | Fresh non-interactive Bash command; no profiles/rc files; stdin closed; at most 131072 UTF-8 bytes. |
-| `cwd` | Default `.`; normalized, non-symlink directory relative to the Pi session workspace. |
-| `timeout_seconds` | Default and effective maximum 120 seconds; minimum 1. |
+| `cwd` | Default `.`; arbitrary existing host directory. Relative paths use the Pi session workspace; absolute paths, traversal, and symlinks are allowed. |
+| `timeout_seconds` | Default 120 seconds; effective maximum 604800 seconds (7 days); minimum 1. |
 | `max_artifact_bytes` | Default and effective maximum 262144 raw retained bytes **per stream**; minimum 1. |
 | `max_preview_bytes` | Default `min(1024, artifact quota)`; explicit values must be positive and no greater than the artifact quota. |
 
-The public JSON Schema retains the reference's wire ceilings of 3600 seconds
-and 67108864 bytes. As with workspace-mcp, the lower effective host caps above
-are checked before spawning; larger values are rejected, not silently clamped.
+The public JSON Schema and effective host cap allow up to 604800 seconds (7
+days). Larger values are rejected, not silently clamped.
 
 ### Collected output and redirection
 
@@ -115,24 +114,26 @@ snapshots. stdout and stderr are drained concurrently and stored independently:
     command_id, exit_code, signal, timed_out,
     descendant_cleanup_attempted, duration_ms,
     stdout: {
-      path, preview, preview_bytes, total_bytes, stored_bytes,
-      preview_truncated, storage_truncated
+      path, preview, len
     },
     stderr: { ...same fields... }
   }
 }
 ```
 
-`preview` is a lossy UTF-8 view of a raw prefix. `preview_bytes` counts raw
-bytes rather than characters. `total_bytes` counts all observed stream bytes;
-`stored_bytes` counts the retained prefix on disk. There is no combined ordering
-between stdout and stderr.
+An empty stream is returned as `null`. For nonempty output that fits entirely
+within the requested preview, the stream object omits `path`; an artifact path
+is included only when it is needed to inspect output beyond the inline preview.
 
-`preview_truncated` means more output was observed than shown inline. Inspect
-the returned absolute artifact path with a bounded `bash_exec` command such as
-`sed -n '1,80p' -- '/absolute/path/to/output.stdout'`. `storage_truncated` means
-even the artifact is incomplete: bytes past the quota were drained and
-discarded. Reading that artifact cannot recover the discarded suffix.
+`preview` is a lossy UTF-8 view of a raw prefix. `len` is a compact
+`shown/observed` raw-byte counter, such as `37/37` or `37/3700`. There is no
+combined ordering between stdout and stderr.
+
+When `len` differs, more output was observed than shown inline. Inspect the
+returned absolute artifact path with a bounded `bash_exec` command such as
+`sed -n '1,80p' -- '/absolute/path/to/output.stdout'`. Bytes past the artifact
+quota are drained and silently discarded; reading the artifact cannot recover
+them.
 
 To preserve large logs completely, redirect output to a deliberate workspace
 file as in the example above, then print a summary. Shell redirection occurs
@@ -160,10 +161,11 @@ terminated after the main shell exits. Background services are not supported.
 Collector cleanup is bounded, and deliberately detached descendants can escape
 the group; failures do not imply rollback of command-side filesystem changes.
 
-The cwd check is **not a sandbox**. Commands can access host paths and mutate
-files with the process's permissions. Absolute artifact paths belong inside
-`command`, not in the `cwd` field. Concurrent hostile directory replacement
-cannot be fully excluded by Node's path-based checks.
+The cwd check is **not a sandbox**. Commands can access arbitrary host paths and
+mutate files with the process's permissions. Relative cwd paths resolve from the
+session cwd; absolute artifact paths may also be supplied in `cwd` or inside
+the `command`. Concurrent hostile directory replacement cannot be fully
+excluded by Node's path-based checks.
 
 ## apply_patch schema
 
@@ -296,6 +298,9 @@ limits, output inspection/redirection, exit and cancellation checks, exact
 patch grammar, verification expectations, and correct `bash_exec` skill loading.
 Tool-specific instruction sections appear only when those tools are active.
 The actual tool list after hiding originals wins over stale prompt options.
+The replacement explicitly says not to recover discarded Pi defaults, custom base
+text, or earlier extension prompt text; the supplied tool definitions remain
+authoritative for names and arguments.
 No-tools and restricted sessions do not get instructions to call an absent
 shell or patch tool. Repeated prompt construction is deterministic.
 

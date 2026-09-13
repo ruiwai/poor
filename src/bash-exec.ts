@@ -2,14 +2,15 @@ import { spawn } from "node:child_process";
 import type { FileHandle } from "node:fs/promises";
 import * as fs from "node:fs/promises";
 import { constants as osConstants } from "node:os";
-import { join, isAbsolute } from "node:path";
+import { resolve } from "node:path";
 import type { Readable } from "node:stream";
 import { Type } from "typebox";
 import { CommandArtifacts } from "./command-artifacts.ts";
 
 export const BASH_LIMITS = Object.freeze({
   maxCommandBytes: 131_072,
-  maxCommandSeconds: 120,
+  defaultCommandSeconds: 120,
+  maxCommandSeconds: 604_800,
   maxArtifactBytes: 262_144,
   maxPreviewBytes: 262_144,
   defaultPreviewBytes: 1_024,
@@ -24,10 +25,10 @@ export const bashParameters = Type.Object({
   command: Type.String({ minLength: 1, maxLength: BASH_LIMITS.maxCommandBytes,
     description: "Fresh non-interactive bash -c command. Runtime limit is UTF-8 bytes." }),
   cwd: Type.Optional(Type.String({ minLength: 1, maxLength: 4096, default: ".",
-    description: "Initial normalized directory relative to the Pi session cwd; not a shell sandbox." })),
+    description: "Initial host directory; relative paths resolve from the Pi session cwd. Not a shell sandbox." })),
   // Match the workspace-mcp wire bounds. Like its client, validate the lower
   // effective host caps separately before any shell is spawned.
-  timeout_seconds: optionalInteger(3600, "Execution deadline; effective local default and maximum 120 seconds."),
+  timeout_seconds: optionalInteger(BASH_LIMITS.maxCommandSeconds, "Execution deadline; effective local default 120 seconds and maximum 7 days."),
   max_artifact_bytes: optionalInteger(67_108_864, "Per-stream retained prefix quota; effective local default and cap 262144 bytes."),
   max_preview_bytes: optionalInteger(67_108_864, "Per-stream raw preview quota; default 1024, effective cap 262144 and at most artifact quota."),
 }, { additionalProperties: false });
@@ -40,13 +41,11 @@ export interface BashExecArguments {
   max_preview_bytes?: number | null;
 }
 export interface OutputStream {
-  path: string;
+  /** Present only when the captured prefix does not fit in preview. */
+  path?: string;
   preview: string;
-  preview_bytes: number;
-  total_bytes: number;
-  stored_bytes: number;
-  preview_truncated: boolean;
-  storage_truncated: boolean;
+  /** Bytes shown inline / bytes observed on the stream. */
+  len: string;
 }
 export interface BashExecResult {
   cwd: string;
@@ -57,8 +56,8 @@ export interface BashExecResult {
     timed_out: boolean;
     descendant_cleanup_attempted: boolean;
     duration_ms: number;
-    stdout: OutputStream;
-    stderr: OutputStream;
+    stdout: OutputStream | null;
+    stderr: OutputStream | null;
   };
 }
 
@@ -81,10 +80,8 @@ export function validateBashArguments(input: unknown) {
     throw new Error("command must be nonempty, NUL-free, and at most 131072 UTF-8 bytes");
   }
   const cwd = value.cwd === undefined ? "." : value.cwd;
-  if (typeof cwd !== "string" || !cwd.trim() || Buffer.byteLength(cwd) > 4096 || cwd.includes("\0")
-    || cwd.includes("\\") || isAbsolute(cwd) || /^[A-Za-z]:/.test(cwd)
-    || (cwd !== "." && cwd.split("/").some((part) => !part || part === "." || part === ".."))) {
-    throw new Error("cwd must be '.' or a normalized session-relative directory without '..' or symlinks");
+  if (typeof cwd !== "string" || !cwd.trim() || Buffer.byteLength(cwd) > 4096 || cwd.includes("\0")) {
+    throw new Error("cwd must be a nonempty NUL-free host path of at most 4096 UTF-8 bytes");
   }
   const integer = (key: string, fallback: number, maximum: number): number => {
     const v = value[key] ?? fallback;
@@ -96,21 +93,18 @@ export function validateBashArguments(input: unknown) {
   const artifactBytes = integer("max_artifact_bytes", BASH_LIMITS.maxArtifactBytes, BASH_LIMITS.maxArtifactBytes);
   return {
     command: value.command, cwd,
-    timeoutSeconds: integer("timeout_seconds", BASH_LIMITS.maxCommandSeconds, BASH_LIMITS.maxCommandSeconds),
+    timeoutSeconds: integer("timeout_seconds", BASH_LIMITS.defaultCommandSeconds, BASH_LIMITS.maxCommandSeconds),
     artifactBytes,
     previewBytes: integer("max_preview_bytes", Math.min(BASH_LIMITS.defaultPreviewBytes, artifactBytes), artifactBytes),
   };
 }
 
-async function checkedCwd(root: string, relative: string): Promise<string> {
-  let directory = await fs.realpath(root);
-  if (!((await fs.stat(directory)).isDirectory())) throw new Error("Pi session cwd is not a directory");
-  if (relative === ".") return directory;
-  for (const part of relative.split("/")) {
-    directory = join(directory, part);
-    const stat = await fs.lstat(directory);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`cwd component is not a real directory: ${relative}`);
-  }
+async function checkedCwd(root: string, requested: string): Promise<string> {
+  // Keep the convenient session-relative default, but otherwise permit any
+  // host path. realpath makes the spawn target stable and intentionally allows
+  // symlinks; cwd is not a sandbox boundary.
+  const directory = await fs.realpath(requested === "." ? root : resolve(root, requested));
+  if (!(await fs.stat(directory)).isDirectory()) throw new Error(`cwd is not a directory: ${requested}`);
   return directory;
 }
 
@@ -171,10 +165,12 @@ class Capture {
       catch (error) { this.error ??= message(error); failed(); }
     }
   }
-  output(): OutputStream {
-    return { path: this.path, preview: Buffer.concat(this.previews, this.previewLength).toString("utf8"),
-      preview_bytes: this.previewLength, total_bytes: this.total, stored_bytes: this.stored,
-      preview_truncated: this.previewLength < this.total, storage_truncated: this.stored < this.total };
+  output(): OutputStream | null {
+    if (!this.total) return null;
+    const output: OutputStream = { preview: Buffer.concat(this.previews, this.previewLength).toString("utf8"),
+      len: `${this.previewLength}/${this.total}` };
+    if (this.total > this.previewLimit) output.path = this.path;
+    return output;
   }
 }
 

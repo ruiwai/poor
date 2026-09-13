@@ -24,11 +24,11 @@ export default function poor(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "bash_exec",
     label: "Bash Exec",
-    description: "Run one fresh non-interactive bash -c with host permissions from a checked session-relative cwd. "
+    description: "Run one fresh non-interactive bash -c with host permissions from an arbitrary host cwd (relative paths use the session cwd). "
       + "Not a sandbox; stdin is closed and shell state does not persist. No env_file, persistent environment, or session argument. "
-      + "Collect stdout/stderr into separate private artifacts and return one JSON result with bounded previews, raw byte counts, "
-      + "preview_truncated and storage_truncated flags, and artifact paths. Defaults/caps: 120 seconds, 262144 retained bytes per "
-      + "stream; default preview 1024 bytes. Preview must not exceed artifact quota. Tool success is not command success: "
+      + "Collect stdout/stderr into separate private artifacts and return one JSON result with bounded previews, compact length counters, "
+      + "and artifact paths; output beyond the retained quota is silently discarded. Defaults/caps: 120 seconds, 262144 retained bytes per "
+      + "stream; default preview 1024 bytes. Timeout defaults to 120 seconds and may be set up to 7 days. Preview must not exceed artifact quota. Tool success is not command success: "
       + "inspect exit_code, signal, timed_out and descendant_cleanup_attempted. Excess output is drained but not retained. "
       + "Redirect large logs explicitly to workspace files. Artifacts have best-effort seven-day retention. "
       + "Commands are request-scoped; timeout, cancellation and leftover descendants trigger process-group cleanup.",

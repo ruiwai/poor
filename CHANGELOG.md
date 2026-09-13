@@ -3,8 +3,9 @@
 ## 2.0.0
 
 - Replace the built-in bash tool with local workspace-mcp-style `bash_exec`.
-- Return bounded stdout/stderr previews, retained artifact paths, byte counts,
-  independent preview/storage truncation flags, and command outcome metadata.
+- Return bounded stdout/stderr previews, retained artifact paths, compact
+  `shown/observed` byte counters, and command outcome metadata. Empty streams
+  are `null`; legacy per-stream truncation fields are not part of the schema.
 - Add request-scoped process-group cleanup, cancellation, and best-effort
   seven-day private artifact retention. No environment-file or persistent-env API.
 - Replace the entire base system prompt with a purpose-built instruction profile
