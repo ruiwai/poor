@@ -1,0 +1,12 @@
+The parser, exact line-matching rules, planning constraints and patch result
+field names in this extension are adapted from workspace-mcp, MIT-licensed:
+
+  Copyright (c) 2026 workspace-mcp contributors
+
+Reference checkout: /home/hilaolu/workspace-mcp
+Reference commit: 3a1343d12beba431ab3868d6399e742a8adeb824
+Reference files: src/patch.rs, src/contract.rs, src/workspace.rs
+
+The filesystem implementation is a local Node.js port, not the Rust executor
+and not a claim of equivalent capability-filesystem or transport guarantees.
+The full MIT license and original copyright notice are included in LICENSE.
