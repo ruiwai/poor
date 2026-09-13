@@ -8,10 +8,9 @@ import { BashRunner, bashParameters } from "./bash-exec.ts";
 export { SHADOWED_TOOLS } from "./prompt.ts";
 
 export const patchParameters = Type.Object({
-  patch: Type.String({
-    minLength: 1,
-    maxLength: LIMITS.maxPatchBytes,
-    description: "Complete exact-only Codex patch document with ordered hunks; runtime limit is UTF-8 bytes.",
+  patch: Type.Unsafe<string>({
+    type: "string", minLength: 1, "x-maxUtf8Bytes": LIMITS.maxPatchBytes,
+    description: "Complete exact-only Codex patch document with ordered hunks; maximum UTF-8 size is 33554432 bytes.",
   }),
 }, { additionalProperties: false });
 

@@ -17,8 +17,6 @@ Targets **Pi 0.85.1** (`@earendil-works/pi-coding-agent`, `typebox`) and
 not the tested target. `bash_exec` requires a POSIX host (Linux/macOS) with Bash;
 Linux is the platform verified in this checkout. Windows is rejected explicitly.
 
-## Use
-
 ## Development
 
 Enter the reproducible development shell and run the complete check suite:
@@ -76,7 +74,7 @@ the MCP `session` and `env_file` fields:
   "command": "npm test > test.log 2>&1; status=$?; tail -n 60 -- test.log; exit \"$status\"",
   "cwd": ".",
   "timeout_seconds": 120,
-  "max_artifact_bytes": 262144,
+  "max_artifact_bytes": 67108864,
   "max_preview_bytes": 4096
 }
 ```
@@ -95,11 +93,13 @@ can still set their own variables explicitly inside the command string.
 | `command` | Fresh non-interactive Bash command; no profiles/rc files; stdin closed; at most 131072 UTF-8 bytes. |
 | `cwd` | Default `.`; arbitrary existing host directory. Relative paths use the Pi session workspace; absolute paths, traversal, and symlinks are allowed. |
 | `timeout_seconds` | Default 120 seconds; effective maximum 604800 seconds (7 days); minimum 1. |
-| `max_artifact_bytes` | Default 262144; maximum 67108864 (64 MiB) raw retained bytes **per stream**; minimum 1. |
+| `max_artifact_bytes` | Default and maximum 67108864 (64 MiB) raw retained bytes **per stream**; minimum 1. |
 | `max_preview_bytes` | Default `min(1024, artifact quota)`; explicit values must be positive and no greater than the artifact quota. |
 
-The public JSON Schema and effective host cap allow up to 604800 seconds (7
-days). Larger values are rejected, not silently clamped.
+The public schema and effective host cap allow up to 604800 seconds (7 days).
+Larger values are rejected, not silently clamped. String size limits are
+reported with the `x-maxUtf8Bytes` annotation because JSON Schema's standard
+`maxLength` counts characters, while runtime validation counts UTF-8 bytes.
 
 ### Collected output and redirection
 
@@ -180,8 +180,8 @@ The model-facing input follows the `patch` argument of
     "patch": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 33554432,
-      "description": "Complete exact-only Codex patch document with ordered hunks; runtime limit is UTF-8 bytes."
+      "x-maxUtf8Bytes": 33554432,
+      "description": "Complete exact-only Codex patch document with ordered hunks; maximum UTF-8 size is 33554432 bytes."
     }
   },
   "required": ["patch"],

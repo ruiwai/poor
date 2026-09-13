@@ -21,12 +21,16 @@ export const BASH_LIMITS = Object.freeze({
 const optionalInteger = (max: number, description: string) => Type.Optional(Type.Union([
   Type.Integer({ minimum: 1, maximum: max, description }), Type.Null(),
 ]));
+// JSON Schema maxLength counts characters; runtime limits count UTF-8 bytes.
+const utf8String = (maxBytes: number, description: string) => Type.Unsafe<string>({
+  type: "string", minLength: 1, description, "x-maxUtf8Bytes": maxBytes,
+});
 export const bashParameters = Type.Object({
-  command: Type.String({ minLength: 1, maxLength: BASH_LIMITS.maxCommandBytes,
-    description: "Fresh non-interactive bash -c command. Runtime limit is UTF-8 bytes." }),
-  cwd: Type.Optional(Type.String({ minLength: 1, maxLength: 4096, default: ".",
-    description: "Initial host directory; relative paths resolve from the Pi session cwd. Not a shell sandbox." })),
-  // The schema and runtime use the same 64 MiB per-stream cap.
+  command: utf8String(BASH_LIMITS.maxCommandBytes,
+    "Fresh non-interactive bash -c command; maximum UTF-8 size is 131072 bytes."),
+  cwd: Type.Optional(Type.Unsafe<string>({ type: "string", minLength: 1, default: ".",
+    description: "Initial host directory; maximum UTF-8 size is 4096 bytes. Relative paths resolve from the Pi session cwd. Not a shell sandbox.",
+    "x-maxUtf8Bytes": 4096 })),
   timeout_seconds: optionalInteger(BASH_LIMITS.maxCommandSeconds, "Execution deadline; effective local default 120 seconds and maximum 7 days."),
   max_artifact_bytes: optionalInteger(BASH_LIMITS.maxArtifactBytes, "Per-stream retained prefix quota; default and maximum 64 MiB."),
   max_preview_bytes: optionalInteger(BASH_LIMITS.maxPreviewBytes, "Per-stream raw preview quota; default 1024; must not exceed max_artifact_bytes."),

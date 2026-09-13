@@ -32,7 +32,7 @@ test("bash_exec schema matches reference fields and wire bounds except session/e
   assert.deepEqual(Object.keys(schema.properties).sort(), ["command", "cwd", "max_artifact_bytes", "max_preview_bytes", "timeout_seconds"]);
   assert.deepEqual(schema.required, ["command"]);
   assert.equal(schema.additionalProperties, false);
-  assert.equal(schema.properties.command.maxLength, 131072);
+  assert.equal(schema.properties.command["x-maxUtf8Bytes"], 131072);
   assert.equal(schema.properties.timeout_seconds.anyOf[0].maximum, 604800);
   assert.equal(schema.properties.max_artifact_bytes.anyOf[0].maximum, 67108864);
   assert.deepEqual(validateBashArguments({ command: "true", timeout_seconds: null, max_preview_bytes: null }), {

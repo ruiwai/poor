@@ -42,7 +42,7 @@ test("real Pi loader activates only bash_exec and apply_patch by default", async
   assert.deepEqual(registered.map((tool) => tool.definition.name).sort(), ["apply_patch", "bash", "bash_exec", "edit", "read", "write"]);
   const definition = session.extensionRunner.getToolDefinition("apply_patch")!;
   const schema = JSON.parse(JSON.stringify(definition.parameters)) as {
-    properties: { patch: { minLength: number; maxLength: number } };
+    properties: { patch: { minLength: number; "x-maxUtf8Bytes": number } };
     required: string[];
     additionalProperties: boolean;
   };
@@ -50,7 +50,7 @@ test("real Pi loader activates only bash_exec and apply_patch by default", async
   assert.deepEqual(schema.required, ["patch"]);
   assert.equal(schema.additionalProperties, false);
   assert.equal(schema.properties.patch.minLength, 1);
-  assert.equal(schema.properties.patch.maxLength, 33_554_432);
+  assert.equal(schema.properties.patch["x-maxUtf8Bytes"], 33_554_432);
 });
 
 test("Pi-wrapped apply_patch executes in session cwd, not extension install directory", async (t) => {
